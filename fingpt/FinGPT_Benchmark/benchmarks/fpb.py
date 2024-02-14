@@ -50,12 +50,13 @@ def vote_output(x):
     else:
         return 'neutral'
     
-def test_fpb(args, model, tokenizer, prompt_fun=None):
+def test_fpb(args, model, tokenizer, prompt_fun=None, max_evals = 100):
     batch_size = args.batch_size
     # instructions = load_dataset("financial_phrasebank", "sentences_50agree")
     instructions = load_from_disk(Path(__file__).parent.parent / "data/financial_phrasebank-sentences_50agree/")
     instructions = instructions["train"]
     instructions = instructions.train_test_split(seed = 42)['test']
+    if max_evals: instructions = instructions.select(range(max_evals))
     instructions = instructions.to_pandas()
     instructions.columns = ["input", "output"]
     instructions["output"] = instructions["output"].apply(lambda x:dic[x])
@@ -73,17 +74,17 @@ def test_fpb(args, model, tokenizer, prompt_fun=None):
 
     context = instructions['context'].tolist()
     
-    total_steps = instructions.shape[0]//batch_size + 1
+    total_steps = instructions.shape[0]//batch_size
     print(f"Total len: {len(context)}. Batchsize: {batch_size}. Total steps: {total_steps}")
 
 
     out_text_list = []
     for i in tqdm(range(total_steps)):
         tmp_context = context[i* batch_size:(i+1)* batch_size]
-        tokens = tokenizer(tmp_context, return_tensors='pt', padding=True, max_length=512, return_token_type_ids=False)
+        tokens = tokenizer(tmp_context, return_tensors='pt', padding=True, max_length=args.max_length, return_token_type_ids=False)
         for k in tokens.keys():
             tokens[k] = tokens[k].to(model.device)
-        res = model.generate(**tokens, max_length=512, eos_token_id=tokenizer.eos_token_id)
+        res = model.generate(**tokens, max_length=args.max_length, eos_token_id=tokenizer.eos_token_id, max_new_tokens=6)
         res_sentences = [tokenizer.decode(i, skip_special_tokens=True) for i in res]
         # print(f'{i}: {res_sentences[0]}')
         out_text = [o.split("Answer: ")[1] for o in res_sentences]
@@ -101,15 +102,16 @@ def test_fpb(args, model, tokenizer, prompt_fun=None):
 
     print(f"Acc: {acc}. F1 macro: {f1_macro}. F1 micro: {f1_micro}. F1 weighted (BloombergGPT): {f1_weighted}. ")
 
-    return instructions
+    return f1_weighted
 
 
-def test_fpb_mlt(args, model, tokenizer):
+def test_fpb_mlt(args, model, tokenizer, max_evals = 300):
     batch_size = args.batch_size
     # dataset = load_dataset("financial_phrasebank", "sentences_50agree")
     dataset = load_from_disk(Path(__file__).parent.parent / 'data/financial_phrasebank-sentences_50agree/')
-    dataset = dataset["train"]#.select(range(300))
+    dataset = dataset["train"]
     dataset = dataset.train_test_split(seed=42)['test']
+    if max_evals: dataset = dataset.select(range(max_evals))
     dataset = dataset.to_pandas()
     dataset.columns = ["input", "output"]
     dataset["output"] = dataset["output"].apply(lambda x: dic[x])
@@ -165,4 +167,4 @@ def test_fpb_mlt(args, model, tokenizer):
 
         print(f"Acc: {acc}. F1 macro: {f1_macro}. F1 micro: {f1_micro}. F1 weighted (BloombergGPT): {f1_weighted}. ")
 
-    return dataset
+    return f1_weighted
