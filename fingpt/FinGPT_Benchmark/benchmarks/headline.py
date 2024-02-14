@@ -32,10 +32,11 @@ def map_output(feature):
     return {'label': label, 'pred': pred}
 
 
-def test_headline(args, model, tokenizer):
+def test_headline(args, model, tokenizer, max_evals=300):
     
     # dataset = load_from_disk('../data/fingpt-headline')['test']
     dataset = load_from_disk(Path(__file__).parent.parent / 'data/fingpt-headline-instruct')['test']
+    if max_evals: dataset = dataset.select(range(max_evals))
     dataset = dataset.map(partial(test_mapping, args), load_from_cache_file=False)
     
     def collate_fn(batch):
@@ -53,7 +54,7 @@ def test_headline(args, model, tokenizer):
 
     for idx, inputs in enumerate(tqdm(dataloader)):
         inputs = {key: value.to(model.device) for key, value in inputs.items()}
-        res = model.generate(**inputs, max_length=args.max_length, eos_token_id=tokenizer.eos_token_id)
+        res = model.generate(**inputs, max_length=args.max_length, eos_token_id=tokenizer.eos_token_id, max_new_tokens=10)
         res_sentences = [tokenizer.decode(i, skip_special_tokens=True) for i in res]
         tqdm.write(f'{idx}: {res_sentences[0]}')
         if (idx + 1) % log_interval == 0:
@@ -81,4 +82,4 @@ def test_headline(args, model, tokenizer):
                                                                      'price down', 'price past', 'price future',
                                                                      'event past', 'event future', 'asset comp']))
 
-    return dataset
+    return acc

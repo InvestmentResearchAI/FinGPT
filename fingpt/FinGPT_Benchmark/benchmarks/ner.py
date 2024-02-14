@@ -1,4 +1,4 @@
-from seqeval.metrics import classification_report
+from seqeval.metrics import classification_report, f1_score
 from datasets import load_dataset, load_from_disk
 from tqdm import tqdm
 import datasets
@@ -51,9 +51,10 @@ def map_output(feature):
     return {'label': label, 'pred': pred}
 
 
-def test_ner(args, model, tokenizer):
+def test_ner(args, model, tokenizer, max_evals=30):
 
     dataset = load_from_disk(Path(__file__).parent.parent / 'data/fingpt-ner')['test']
+    if max_evals: dataset = dataset.select(range(max_evals))
     dataset = dataset.map(partial(test_mapping, args), load_from_cache_file=False)
     
     def collate_fn(batch):
@@ -90,5 +91,6 @@ def test_ner(args, model, tokenizer):
     pred = [d.tolist() for d in dataset['pred']]
     
     print(classification_report(label, pred, digits=4))
+    f1_weighted = f1_score(label, pred, average = "weighted")
 
-    return dataset
+    return f1_weighted

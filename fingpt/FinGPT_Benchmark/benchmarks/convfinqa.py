@@ -25,15 +25,17 @@ def cvt_text_to_pred(text):
 
 
 def map_output(feature):
-
+    
     label = cvt_text_to_pred(feature['output'])
     pred = cvt_text_to_pred(feature['out_text'])
     
     return {'label': label, 'pred': pred}
 
 
+def test_convfinqa(args, model, tokenizer, max_evals=30):
     
     dataset = load_from_disk(Path(__file__).parent.parent / 'data/fingpt-convfinqa')['test']
+    if max_evals: dataset = dataset.select(range(max_evals))
     dataset = dataset.map(partial(test_mapping, args), load_from_cache_file=False)
     
     def collate_fn(batch):
@@ -51,7 +53,7 @@ def map_output(feature):
 
     for idx, inputs in enumerate(tqdm(dataloader)):
         inputs = {key: value.to(model.device) for key, value in inputs.items()}
-        res = model.generate(**inputs, max_length=args.max_length, eos_token_id=tokenizer.eos_token_id)
+        res = model.generate(**inputs, max_length=args.max_length, eos_token_id=tokenizer.eos_token_id, max_new_tokens=512)
         res_sentences = [tokenizer.decode(i, skip_special_tokens=True) for i in res]
         if (idx + 1) % log_interval == 0:
             tqdm.write(f'{idx}: {res_sentences[0]}')
@@ -72,4 +74,4 @@ def map_output(feature):
     
     print('Accuracy: ', accuracy_score(label, pred))
 
-    return dataset
+    return accuracy_score(label, pred)

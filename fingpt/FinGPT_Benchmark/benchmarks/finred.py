@@ -99,12 +99,14 @@ def calc_metric(gt_list, pred_list):
     print("Precision:", precision)
     print("Recall:", recall)
     print("F1-Score:", f1_score)
+    return f1_score
     
 
-def test_re(args, model, tokenizer):
+def test_re(args, model, tokenizer, max_evals=50):
 
     dataset = load_from_disk(Path(__file__).parent.parent / 'data/fingpt-finred-re')['test']
     dataset = dataset.train_test_split(0.2, seed=42)['test']
+    if max_evals: dataset = dataset.select(range(max_evals))
     dataset = dataset.map(partial(test_mapping, args), load_from_cache_file=False)
     
     def collate_fn(batch):
@@ -147,4 +149,4 @@ def test_re(args, model, tokenizer):
     
     calc_metric(label_re, pred_re)
 
-    return dataset
+    return calc_metric(label_re, pred_re)

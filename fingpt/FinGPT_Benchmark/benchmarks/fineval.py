@@ -32,9 +32,10 @@ def map_output(feature):
     return {'label': label, 'pred': pred}
 
 
-def test_fineval(args, model, tokenizer):
+def test_fineval(args, model, tokenizer, max_evals=30):
 
     dataset = load_from_disk(Path(__file__).parent.parent / 'data/fingpt-fineval')['test']
+    if max_evals: dataset = dataset.select(range(max_evals))
     dataset = dataset.map(partial(test_mapping, args), load_from_cache_file=False)
     
     def collate_fn(batch):
@@ -52,7 +53,7 @@ def test_fineval(args, model, tokenizer):
 
     for idx, inputs in enumerate(tqdm(dataloader)):
         inputs = {key: value.to(model.device) for key, value in inputs.items()}
-        res = model.generate(**inputs, max_length=args.max_length, eos_token_id=tokenizer.eos_token_id)
+        res = model.generate(**inputs, max_length=args.max_length, eos_token_id=tokenizer.eos_token_id, max_new_tokens=6)
         res_sentences = [tokenizer.decode(i, skip_special_tokens=True) for i in res]
         if (idx + 1) % log_interval == 0:
             tqdm.write(f'{idx}: {res_sentences[0]}')
@@ -69,4 +70,4 @@ def test_fineval(args, model, tokenizer):
     
     print('Accuracy:', accuracy_score(dataset['label'], dataset['pred']))
 
-    return dataset
+    return accuracy_score(dataset['label'], dataset['pred'])

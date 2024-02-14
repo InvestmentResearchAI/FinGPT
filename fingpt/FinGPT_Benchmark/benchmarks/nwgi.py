@@ -34,10 +34,12 @@ def change_target(x):
     else:
         return 'neutral'
 
-def test_nwgi(args, model, tokenizer, prompt_fun=None):
+def test_nwgi(args, model, tokenizer, prompt_fun=None, max_evals=100):
     batch_size = args.batch_size
     # dataset = load_dataset('oliverwang15/news_with_gpt_instructions')
-    dataset = load_from_disk(Path(__file__).parent.parent / 'data/news_with_gpt_instructions/')
+    dataset = load_from_disk(Path(__file__).parent.parent / 'data/news_with_gpt_instructions/')['test']
+    if max_evals: dataset = dataset.select(range(max_evals))
+    dataset = dataset.to_pandas()
     dataset['output'] = dataset['label'].apply(lambda x:dic[x])
 
     if prompt_fun is None:
@@ -55,18 +57,18 @@ def test_nwgi(args, model, tokenizer, prompt_fun=None):
 
     context = dataset['context'].tolist()
     
-    total_steps = dataset.shape[0]//batch_size + 1
+    total_steps = dataset.shape[0]//batch_size
     print(f"Total len: {len(context)}. Batchsize: {batch_size}. Total steps: {total_steps}")
 
 
     out_text_list = []
     for i in tqdm(range(total_steps)):
         tmp_context = context[i* batch_size:(i+1)* batch_size]
-        tokens = tokenizer(tmp_context, return_tensors='pt', padding=True, max_length=512, return_token_type_ids=False)
+        tokens = tokenizer(tmp_context, return_tensors='pt', padding=True, max_length=args.max_length, return_token_type_ids=False)
         # tokens.pop('token_type_ids')
         for k in tokens.keys():
             tokens[k] = tokens[k].cuda()
-        res = model.generate(**tokens, max_length=512, eos_token_id=tokenizer.eos_token_id)
+        res = model.generate(**tokens, max_length=args.max_length, eos_token_id=tokenizer.eos_token_id, max_new_tokens=6)
         res_sentences = [tokenizer.decode(i, skip_special_tokens=True) for i in res]
         out_text = [o.split("Answer: ")[1] for o in res_sentences]
         out_text_list += out_text
@@ -83,4 +85,4 @@ def test_nwgi(args, model, tokenizer, prompt_fun=None):
 
     print(f"Acc: {acc}. F1 macro: {f1_macro}. F1 micro: {f1_micro}. F1 weighted (BloombergGPT): {f1_weighted}. ")
 
-    return dataset
+    return f1_weighted
