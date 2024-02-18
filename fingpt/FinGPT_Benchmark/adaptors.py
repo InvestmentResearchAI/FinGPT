@@ -6,6 +6,14 @@ class LitGPTModelAdaptor:
     def __init__(self, model):
         self._model = model
     
+    def __getattr__(self, k):
+        attr = getattr(self._model, k)
+        if callable(attr):
+            def wrapper(*args, **kwargs):       
+                return attr(*args, **kwargs)
+            return wrapper
+        return attr
+    
     def multinomial_num_samples_1(self, probs: torch.Tensor) -> torch.Tensor:
         if torch._dynamo.is_compiling():
             # Faster alternative to `torch.multinomial(probs, num_samples=1)` that is also CUDAGraph friendly
@@ -72,14 +80,21 @@ class LitGPTTokenizerAdaptor:
         self._tokenizer = tokenizer
     
     def __getattr__(self, k):
-        def wrapper(*args, **kwargs):
-            return getattr(self._tokenizer, k)(*args, **kwargs)
-        return wrapper
+        attr = getattr(self._tokenizer, k)
+        if callable(attr):
+            def wrapper(*args, **kwargs):       
+                return attr(*args, **kwargs)
+            return wrapper
+        return attr
     
     def __call__(self, *args, **kwargs):
         prompt = args[0][0]
         tokens = self._tokenizer.encode(prompt, max_length=kwargs["max_length"])
         return {"input_ids": tokens.view([1, -1])}
+   
+    @property
+    def eos_token_id(self):
+        return self._tokenizer.eos_id
     
     def decode(self, *args, **kwargs):
         return self._tokenizer.decode(args[0].to(torch.int64))
