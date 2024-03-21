@@ -22,7 +22,7 @@ class LitGPTModelAdaptor:
         return torch.multinomial(probs, num_samples=1)
 
 
-    def sample(self, logits: torch.Tensor, temperature: float = 1.0, top_k: Optional[int] = None) -> torch.Tensor:
+    def sample(self, logits: torch.Tensor, temperature: float = 0.0, top_k: Optional[int] = None) -> torch.Tensor:
         logits = logits[0, -1]
         # optionally crop the logits to only the top k options
         if top_k is not None:
@@ -47,7 +47,7 @@ class LitGPTModelAdaptor:
         input_ids: torch.Tensor,
         max_new_tokens: int,
         *,
-        temperature: float = 1.0,
+        temperature: float = 0.0,
         top_k: Optional[int] = None,
         eos_token_id: Optional[int] = None,
         **kwargs,
